@@ -40,6 +40,9 @@ Include/
 gcloud_key*.json
 application_default_credentials.json
 
+# ── Configuración de usuario (contiene IDs de proyecto GCP) ─────────────────
+data/user_config.json
+
 # ── Base de datos local ───────────────────────────────────────────────────────
 data/actas.db
 data/actas.db-journal
