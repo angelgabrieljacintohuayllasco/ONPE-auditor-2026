@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auditor ONPE 2026</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css?v={{ range(1, 100000) | random }}" />
+</head>
+<body class="home-body">
+
+<!-- ── NAVBAR ─────────────────────────────────────────────────────────────── -->
+<nav class="navbar navbar-dark bg-dark px-4 py-2 sticky-top">
+  <span class="navbar-brand fw-bold fs-5">
+    <i class="bi bi-shield-check text-success"></i> Auditor ONPE 2026
+  </span>
+  <div class="d-flex align-items-center gap-3">
+    <div class="text-secondary small d-flex gap-3 d-none d-md-flex">
+      <span><i class="bi bi-file-earmark-text text-info"></i> <span id="statActas">—</span> actas</span>
+      <span><i class="bi bi-cpu text-warning"></i> <span id="statOcr">—</span> OCR</span>
+      <span><i class="bi bi-shield-exclamation text-danger"></i> <span id="statAnomalias">—</span> anomalías</span>
+      <span><i class="bi bi-exclamation-triangle text-warning"></i> <span id="statDisc">—</span> disc.</span>
+    </div>
+    <span class="badge bg-success">v2.0</span>
+    <a href="/resultados" class="btn btn-sm btn-outline-info ms-2">
+      <i class="bi bi-table"></i> Resultados masivos
+    </a>
+    <a href="/auditoria" class="btn btn-sm btn-outline-danger ms-2">
+      <i class="bi bi-shield-fill-exclamation"></i> Auditoría
+    </a>
+  </div>
+</nav>
+
+<!-- ── LAYOUT PRINCIPAL: dos columnas + fila inferior descarga ──────────────── -->
+<div class="home-main">
+<div class="home-layout">
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       COLUMNA IZQUIERDA — Procesamiento Individual
+       ════════════════════════════════════════════════════════════════════════ -->
+  <section class="col-individual">
+
+    <div class="section-header">
+      <div>
+        <h6 class="section-title mb-0">Procesar actas individualmente</h6>
+      </div>
+    </div>
+
+    <!-- Barra de búsqueda -->
+    <div class="search-box">
+      <div class="input-group">
+        <input type="text" id="inputMesa" class="form-control form-control-lg font-monospace fw-bold"
+               placeholder="codigo de mesa" maxlength="6"
+               onkeydown="if(event.key==='Enter') buscarMesa()" />
+        <button class="btn btn-primary btn-lg px-4" onclick="buscarMesa()">
+          <i class="bi bi-search"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Bloques de Mesas (como en el wireframe) -->
+    <div id="panelVacio" class="d-flex flex-column gap-2 mt-3 overflow-y-auto pb-3">
+      {% for mesa in mesas_prueba %}
+      <div class="cursor-pointer p-3" onclick="cargarMesa('{{ mesa.codigo }}')" 
+           style="background: #161b22; border: 1px solid #30363d; border-left: 4px solid #388bfd; border-radius: 6px; transition: transform 0.1s;">
+        <div class="fw-bold fs-5 text-light font-monospace">{{ mesa.codigo }}</div>
+        <div class="text-info small fw-bold mb-1">{{ mesa.categoria }}</div>
+        <div class="text-muted" style="font-size: .75rem; line-height: 1.3;">{{ mesa.descripcion }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Header de la mesa cargada (oculto por defecto) -->
+    <div id="mesaHeader" class="mesa-header-card d-none">
+      <div class="d-flex justify-content-between align-items-start mb-1">
+        <div>
+          <div class="font-monospace fw-bold fs-5" id="mesaTitulo">—</div>
+          <div class="text-muted small" id="mesaSubtitulo">—</div>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" onclick="window.location.reload()"><i class="bi bi-arrow-left"></i> Volver</button>
+      </div>
+    </div>
+
+    <!-- Tabs compactas de mesa -->
+    <div id="indTabs" class="d-none h-100 d-flex flex-column">
+      <ul class="nav nav-tabs nav-sm mt-1">
+        <li class="nav-item">
+          <a class="nav-link active" data-bs-toggle="tab" href="#tabActas"><i class="bi bi-file-earmark-text"></i> Actas</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-bs-toggle="tab" href="#tabViewer"><i class="bi bi-eye"></i> Visor</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-bs-toggle="tab" href="#tabOcr"><i class="bi bi-cpu"></i> OCR</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-bs-toggle="tab" href="#tabForense"><i class="bi bi-shield-check"></i> Forense</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-bs-toggle="tab" href="#tabComparacion"><i class="bi bi-arrow-left-right"></i> Comparar</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-bs-toggle="tab" href="#tabAnomalias" onclick="cargarChartsAnomalias()">
+            <i class="bi bi-graph-up-arrow"></i> Anomalías
+          </a>
+        </li>
+      </ul>
+
+      <div class="tab-content ind-tab-content" id="mainTabContent">
+
+        <!-- TAB: Actas -->
+        <div class="tab-pane fade show active" id="tabActas">
+          <div id="actasContainer">
+            <div class="text-muted text-center pt-4 small">Cargando actas…</div>
+          </div>
+        </div>
+
+        <!-- TAB: Visor PDF -->
+        <div class="tab-pane fade" id="tabViewer">
+          <div class="d-flex gap-2 mb-2 align-items-center flex-wrap">
+            <select class="form-select form-select-sm w-auto" id="selectActaViewer" onchange="loadPdfPage(1)">
+              <option value="">-- Acta --</option>
+            </select>
+            <button class="btn btn-xs btn-outline-secondary" onclick="loadPdfPage(currentPage-1)"><i class="bi bi-chevron-left"></i></button>
+            <span id="pdfPageInfo" class="small text-muted">—</span>
+            <button class="btn btn-xs btn-outline-secondary" onclick="loadPdfPage(currentPage+1)"><i class="bi bi-chevron-right"></i></button>
+            <button class="btn btn-xs btn-outline-primary ms-auto" onclick="downloadPdf()"><i class="bi bi-download"></i></button>
+          </div>
+          <div id="pdfViewerContainer" class="text-center">
+            <p class="text-muted small py-3">Descarga el acta primero</p>
+          </div>
+        </div>
+
+        <!-- TAB: OCR -->
+        <div class="tab-pane fade" id="tabOcr">
+          <div class="d-flex gap-2 mb-2 flex-wrap">
+            <select class="form-select form-select-sm w-auto" id="selectActaOcr">
+              <option value="">-- Acta --</option>
+            </select>
+            <button class="btn btn-sm btn-primary" onclick="ejecutarOcr()"><i class="bi bi-cpu"></i> Ejecutar</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="cargarOcr()"><i class="bi bi-database"></i> Ver</button>
+          </div>
+          <div id="ocrContainer"></div>
+        </div>
+
+        <!-- TAB: Forense -->
+        <div class="tab-pane fade" id="tabForense">
+          <div class="d-flex gap-2 mb-2 flex-wrap">
+            <select class="form-select form-select-sm w-auto" id="selectActaForense">
+              <option value="">-- Acta --</option>
+            </select>
+            <button class="btn btn-sm btn-warning" onclick="ejecutarForense()"><i class="bi bi-shield-check"></i> Analizar</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="cargarForense()"><i class="bi bi-database"></i> Ver</button>
+          </div>
+          <div id="forenseContainer"></div>
+        </div>
+
+        <!-- TAB: Comparación -->
+        <div class="tab-pane fade" id="tabComparacion">
+          <div class="d-flex gap-2 mb-2 flex-wrap">
+            <select class="form-select form-select-sm w-auto" id="selectActaComparacion">
+              <option value="">-- Acta --</option>
+            </select>
+            <button class="btn btn-sm btn-danger" onclick="ejecutarComparacion()"><i class="bi bi-arrow-left-right"></i> Comparar</button>
+          </div>
+          <div id="comparacionContainer"></div>
+        </div>
+
+        <!-- TAB: Anomalías -->
+        <div class="tab-pane fade" id="tabAnomalias">
+          <div class="row g-2 mb-2">
+            <div class="col-sm-6">
+              <div class="card border-warning">
+                <div class="card-header py-1 bg-warning text-dark small fw-bold"><i class="bi bi-cpu"></i> Modelo OCSVM</div>
+                <div class="card-body py-2">
+                  <label class="form-label small mb-1">ν (% outliers)</label>
+                  <input type="range" class="form-range" id="svmNu" min="0.01" max="0.3" step="0.01" value="0.05"
+                         oninput="document.getElementById('svmNuVal').textContent=this.value" />
+                  <span class="small">ν = <strong id="svmNuVal">0.05</strong></span>
+                  <button class="btn btn-warning btn-sm w-100 mt-2" onclick="entrenarModelo()">Entrenar</button>
+                  <div id="entrenarStatus" class="mt-1 small"></div>
+                </div>
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <div class="card border-info">
+                <div class="card-header py-1 bg-info text-white small fw-bold"><i class="bi bi-search"></i> Analizar mesa</div>
+                <div class="card-body py-2">
+                  <div class="input-group input-group-sm mb-2">
+                    <input type="text" class="form-control font-monospace" id="anomMesa" placeholder="054938" maxlength="6" />
+                    <select class="form-select" id="anomEleccion">
+                      <option value="10">Presidencial</option>
+                      <option value="11">Senadores DEU</option>
+                      <option value="12">Senadores DEM</option>
+                      <option value="13">Diputados</option>
+                      <option value="14">Parl. Andino</option>
+                    </select>
+                  </div>
+                  <button class="btn btn-info btn-sm w-100 text-white" onclick="analizarMesaAnom()">Analizar</button>
+                  <div id="anomResultado" class="mt-1 small"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row g-2">
+            <div class="col-sm-6">
+              <div class="card"><div class="card-header py-1 small fw-bold">Histograma OCSVM</div>
+                <div class="card-body py-1"><canvas id="chartScores" height="160"></canvas></div></div>
+            </div>
+            <div class="col-sm-6">
+              <div class="card"><div class="card-header py-1 small fw-bold">Estados barrido</div>
+                <div class="card-body py-1"><canvas id="chartEstados" height="160"></canvas></div></div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /tab-content -->
+    </div><!-- /indTabs -->
+
+  </section><!-- /col-individual -->
+
+  <!-- Divisor -->
+  <div class="col-divider"></div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       COLUMNA DERECHA — Automatización Masiva
+       ════════════════════════════════════════════════════════════════════════ -->
+  <section class="col-masivo">
+
+    <div class="section-header">
+      <div>
+        <h6 class="section-title mb-0">procesar actas masivamente</h6>
+      </div>
+      <div class="d-flex gap-2 align-items-center">
+        <button class="btn btn-xs btn-outline-secondary" onclick="cargarJobsHistorial()" title="Ver historial">
+          <i class="bi bi-clock-history"></i>
+        </button>
+        <button class="btn btn-xs btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalConfig" title="Config">
+          <i class="bi bi-gear"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- MAIN BUTTON 1 -->
+    <div class="mt-2 mb-4 d-flex justify-content-center">
+      <button class="btn btn-outline-danger fw-bold fs-5 px-5 py-2" onclick="irAProcesar('rango')" style="border-radius: 20px; border-width: 2px;">
+        procesar actas
+      </button>
+    </div>
+
+    <!-- CONTROLS FOR MAIN BUTTON -->
+    <div class="d-flex justify-content-center align-items-center gap-2 mb-4">
+      <input type="text" id="autoRangoInicio" class="form-control text-center font-monospace" style="width: 80px;" placeholder="000001" value="000001">
+      <span>a</span>
+      <input type="text" id="autoRangoFin" class="form-control text-center font-monospace" style="width: 80px;" placeholder="001000" value="001000">
+      <span class="ms-2">rangos</span>
+    </div>
+
+    <div class="d-flex justify-content-center align-items-center gap-2 mb-5">
+      <input type="number" id="autoDelay" class="form-control text-center" style="width: 80px;" value="0.5" step="0.1">
+      <span>rate limit</span>
+      
+      <!-- hidden settings for compatibility with JS -->
+      <input type="hidden" id="autoConcurrencia" value="3">
+      <input type="hidden" id="autoDescargarPdf" value="on">
+      <input type="hidden" id="autoEjecutarOcr" value="on">
+      <input type="hidden" id="autoForense" value="on">
+    </div>
+
+    <!-- MAIN BUTTON 2 -->
+    <div class="mt-4 mb-5 d-flex justify-content-center">
+      <button class="btn btn-outline-danger fw-bold fs-5 px-5 py-2" onclick="irAProcesar('todas')" style="border-radius: 20px; border-width: 2px;">
+        procesar todas las actas
+      </button>
+    </div>
+
+    <!-- STOP CONDITION -->
+    <div class="d-flex justify-content-center align-items-center gap-2">
+      <span>si no se recibe respuesta de</span>
+      <input type="number" id="autoMaxVacios" class="form-control text-center" style="width: 80px;" value="200">
+      <span>se debe detener</span>
+      
+      <!-- hidden fields for 'todas' mode compatibility -->
+      <input type="hidden" id="autoDelayTotal" value="0.5">
+      <input type="hidden" id="autoConcurrenciaTotal" value="3">
+      <input type="hidden" id="autoMaxVaciosTotal" value="200">
+    </div>
+
+    <!-- Mini stats (keep them for visibility at the bottom) -->
+    <div class="mini-stats-row mt-auto">
+      <div class="mini-stat"><div class="mini-stat-val text-info" id="msActas">—</div><div class="mini-stat-label">Actas ONPE</div></div>
+      <div class="mini-stat"><div class="mini-stat-val text-warning" id="msOcr">—</div><div class="mini-stat-label">OCR Proc.</div></div>
+      <div class="mini-stat"><div class="mini-stat-val text-danger" id="msAnom">—</div><div class="mini-stat-label">Anomalías</div></div>
+      <div class="mini-stat"><div class="mini-stat-val text-warning" id="msDisc">—</div><div class="mini-stat-label">Discrepancias</div></div>
+    </div>
+    <div class="jobs-mini-panel d-none" id="jobsMiniList"></div>
+
+  </section>
+
+</div><!-- /home-layout -->
+
+<!-- ════ FILA INFERIOR — Descarga Masiva (PDFs para dataset) ════════════════ -->
+<section class="col-descarga">
+
+  <div class="section-header">
+    <div>
+      <h6 class="section-title mb-0"><i class="bi bi-cloud-download me-1"></i>descargar actas masivamente</h6>
+      <p class="section-sub mt-1">Solo descarga PDFs sin procesar — carpeta separada para entrenamiento / dataset</p>
+    </div>
+    <div class="text-muted small d-flex align-items-center gap-2 ms-auto">
+      <i class="bi bi-folder2-open text-info"></i>
+      <span>destino: <code class="text-warning">data/dataset/</code></span>
+    </div>
+  </div>
+
+  <div class="d-flex flex-wrap align-items-center gap-3 gap-md-4 mt-3">
+
+    <!-- Botón rango -->
+    <button class="btn btn-outline-info fw-bold px-4 py-2" onclick="irADescargar('rango')" style="border-radius:20px;border-width:2px">
+      <i class="bi bi-download me-1"></i>descargar rango
+    </button>
+
+    <!-- Rangos -->
+    <div class="d-flex align-items-center gap-2">
+      <input type="text" id="dlRangoInicio" class="form-control text-center font-monospace" style="width:80px" value="000001">
+      <span>a</span>
+      <input type="text" id="dlRangoFin" class="form-control text-center font-monospace" style="width:80px" value="001000">
+    </div>
+
+    <!-- Rate limit -->
+    <div class="d-flex align-items-center gap-2">
+      <input type="number" id="dlDelay" class="form-control text-center" style="width:70px" value="0.3" step="0.1">
+      <span class="text-muted small">rate limit</span>
+    </div>
+
+    <!-- Botón todas -->
+    <button class="btn btn-outline-info fw-bold px-4 py-2" onclick="irADescargar('todas')" style="border-radius:20px;border-width:2px">
+      <i class="bi bi-cloud-arrow-down me-1"></i>descargar todas
+    </button>
+
+    <!-- Stop condition -->
+    <div class="d-flex align-items-center gap-2">
+      <span class="text-muted small">detener tras</span>
+      <input type="number" id="dlMaxVacios" class="form-control text-center" style="width:70px" value="200">
+      <span class="text-muted small">vacías consecutivas</span>
+    </div>
+
+    <!-- Carpeta destino editable -->
+    <div class="d-flex align-items-center gap-2 ms-auto">
+      <span class="text-muted small"><i class="bi bi-folder2"></i> carpeta:</span>
+      <input type="text" id="dlCarpeta" class="form-control font-monospace" style="width:110px" value="dataset" placeholder="dataset">
+    </div>
+
+  </div>
+
+</section>
+
+</div><!-- /home-main -->
+
+<!-- ── Toast container ──────────────────────────────────────────────────────── -->
+<div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer" style="z-index:2000"></div>
+
+<!-- ── MODAL: Configuración ─────────────────────────────────────────────────── -->
+<div class="modal fade" id="modalConfig" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h6 class="modal-title"><i class="bi bi-gear"></i> Configuración del sistema</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-header small fw-bold bg-primary text-white"><i class="bi bi-cpu"></i> Motor OCR</div>
+              <div class="card-body">
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="radio" name="ocrEngine" id="ocrLocal" value="local" checked />
+                  <label class="form-check-label" for="ocrLocal">
+                    <strong>Local — Tesseract + MNIST CNN</strong>
+                    <div class="small text-muted">Gratuito, sin internet. Precisión ~95%.</div>
+                  </label>
+                </div>
+                <div class="form-check mb-3">
+                  <input class="form-check-input" type="radio" name="ocrEngine" id="ocrGoogle" value="google" />
+                  <label class="form-check-label" for="ocrGoogle">
+                    <strong>Google Document AI Enterprise</strong>
+                    <div class="small text-muted">Mayor precisión. USD 1.50/1000 págs.</div>
+                  </label>
+                </div>
+                <button class="btn btn-sm btn-primary" onclick="guardarConfigOcr()">Aplicar</button>
+                <span id="configOcrStatus" class="ms-2 small"></span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-header small fw-bold d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-cloud-check"></i> Google Cloud Document AI</span>
+                <button class="btn btn-link btn-sm p-0 text-muted" onclick="cargarEstadoAuth()" title="Actualizar estado">
+                  <i class="bi bi-arrow-clockwise" id="authRefreshIcon"></i>
+                </button>
+              </div>
+              <div class="card-body p-2">
+                <!-- Estado de autenticación (se rellena por JS) -->
+                <div id="authStatusPanel" class="mb-2">
+                  <div class="text-muted small text-center py-1">
+                    <i class="bi bi-hourglass-split"></i> Cargando estado…
+                  </div>
+                </div>
+                <hr class="my-2" />
+                <!-- Configuración: Project / Processor / Location -->
+                <div class="mb-2">
+                  <label class="form-label small fw-bold mb-1">Project ID
+                    <span class="text-muted fw-normal" style="font-size:.7rem"> ej: my-project-123456</span>
+                  </label>
+                  <input type="text" class="form-control form-control-sm font-monospace"
+                         id="gProjectId" placeholder="my-project-123456" />
+                </div>
+                <div class="row g-2 mb-2">
+                  <div class="col-8">
+                    <label class="form-label small fw-bold mb-1">Processor ID
+                      <span class="text-muted fw-normal" style="font-size:.7rem"> ej: a1b2c3d4</span>
+                    </label>
+                    <input type="text" class="form-control form-control-sm font-monospace"
+                           id="gProcessorId" placeholder="a1b2c3d4e5f6" />
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label small fw-bold mb-1">Región</label>
+                    <select class="form-select form-select-sm" id="gLocation">
+                      <option value="us">us</option>
+                      <option value="eu">eu</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="d-flex gap-2 mb-2">
+                  <button class="btn btn-sm btn-secondary flex-grow-1" onclick="guardarConfigGoogle()">
+                    <i class="bi bi-floppy"></i> Guardar
+                  </button>
+                  <button class="btn btn-sm btn-outline-success flex-grow-1" onclick="testGoogleOcr()">
+                    <i class="bi bi-play-circle"></i> Probar conexión
+                  </button>
+                </div>
+                <div id="googleTestResult" class="small"></div>
+
+                <!-- Ayuda colapsable: cómo configurar gcloud ADC -->
+                <div class="mt-2">
+                  <a href="#" class="small text-muted text-decoration-none"
+                     data-bs-toggle="collapse" data-bs-target="#googleAuthHelp">
+                    <i class="bi bi-terminal"></i> ¿Cómo autenticarse con gcloud?
+                  </a>
+                  <div class="collapse mt-2" id="googleAuthHelp">
+                    <div class="p-2 rounded" style="background:#0d1117; font-size:.72rem; line-height:1.8">
+                      <div class="fw-bold text-info mb-1">
+                        <i class="bi bi-1-circle-fill"></i> Instalar Google Cloud CLI
+                        <a href="https://cloud.google.com/sdk/docs/install-sdk#windows"
+                           target="_blank" class="text-info ms-1" style="font-size:.68rem">→ descargar</a>
+                      </div>
+                      <div class="fw-bold text-info mb-1 mt-2">
+                        <i class="bi bi-2-circle-fill"></i> Inicializar (una sola vez)
+                      </div>
+                      <code class="d-block text-warning mb-1">gcloud init</code>
+                      <span style="color:#8b949e">Te pedirá iniciar sesión y seleccionar proyecto.</span>
+                      <div class="fw-bold text-info mb-1 mt-2">
+                        <i class="bi bi-3-circle-fill"></i> Generar credenciales ADC para Python
+                      </div>
+                      <code class="d-block text-warning mb-1">gcloud auth application-default login</code>
+                      <span style="color:#8b949e">
+                        Abre el navegador para iniciar sesión. Crea el archivo:<br/>
+                        <span class="text-light font-monospace" style="font-size:.68rem">%APPDATA%\gcloud\application_default_credentials.json</span>
+                      </span>
+                      <div class="text-success mt-2" style="font-size:.7rem">
+                        <i class="bi bi-check-circle"></i>
+                        Después de esto, el panel mostrará ✓ ADC configurado y ya no necesitas JSON ni env vars.
+                      </div>
+                      <div class="text-muted mt-1" style="font-size:.67rem">
+                        <i class="bi bi-info-circle"></i>
+                        <code class="text-light">gcloud auth login</code> y
+                        <code class="text-light">gcloud auth application-default login</code>
+                        son comandos distintos — los dos son necesarios.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card border-warning">
+              <div class="card-header small fw-bold bg-warning text-dark"><i class="bi bi-sliders"></i> Parámetros de barrido</div>
+              <div class="card-body">
+                <label class="form-label small fw-bold">Hilos simultáneos</label>
+                <input type="range" class="form-range" id="cfgConcurrencia" min="1" max="10" value="3"
+                       oninput="document.getElementById('cfgConcVal').textContent=this.value" />
+                <span class="small text-muted d-block mb-2">Hilos: <strong id="cfgConcVal">3</strong></span>
+                <label class="form-label small fw-bold">Delay entre peticiones (seg)</label>
+                <input type="range" class="form-range" id="cfgDelay" min="0.1" max="3" step="0.1" value="0.5"
+                       oninput="document.getElementById('cfgDelayVal').textContent=this.value" />
+                <span class="small text-muted d-block mb-3">Delay: <strong id="cfgDelayVal">0.5</strong>s</span>
+                <button class="btn btn-warning btn-sm w-100" onclick="guardarConfigBarrido()">Guardar</button>
+                <span id="configBarridoStatus" class="d-block mt-2 small"></span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card border-success">
+              <div class="card-header small fw-bold bg-success text-white"><i class="bi bi-calculator"></i> Estimador costo Google OCR</div>
+              <div class="card-body">
+                <div class="row g-2 mb-2">
+                  <div class="col"><label class="form-label small">Nº mesas</label>
+                    <input type="number" class="form-control form-control-sm" id="estMesas" value="170000" /></div>
+                  <div class="col"><label class="form-label small">Actas/mesa</label>
+                    <input type="number" class="form-control form-control-sm" id="estActas" value="4.2" step="0.1" /></div>
+                </div>
+                <button class="btn btn-success btn-sm w-100 mb-2" onclick="estimarCosto()">Calcular</button>
+                <div id="costoResultado"></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="card border-info">
+              <div class="card-header small fw-bold bg-info text-dark">
+                <i class="bi bi-intersect"></i> Modo de Comparación API vs OCR
+              </div>
+              <div class="card-body">
+
+                <!-- Opción: Simple -->
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="radio" name="comparacionModo"
+                         id="cmpSimple" value="simple" checked />
+                  <label class="form-check-label" for="cmpSimple">
+                    <strong>Simple</strong>
+                    <div class="small text-muted">API vs último OCR procesado. Comportamiento original.</div>
+                  </label>
+                </div>
+
+                <!-- Opción: Híbrido -->
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="radio" name="comparacionModo"
+                         id="cmpHibrido" value="hibrido" />
+                  <label class="form-check-label" for="cmpHibrido">
+                    <strong>Híbrido — OCR Local + Google</strong>
+                    <div class="small text-muted">
+                      Compara API con ambos OCR. Sin anomalía si al menos uno coincide.
+                      Anomalía solo si ningún OCR detectó el valor correcto.
+                    </div>
+                  </label>
+                </div>
+
+                <!-- Opción: Híbrido IA -->
+                <div class="form-check mb-3">
+                  <input class="form-check-input" type="radio" name="comparacionModo"
+                         id="cmpHibridoIa" value="hibrido_ia" />
+                  <label class="form-check-label" for="cmpHibridoIa">
+                    <strong>Híbrido + IA (Gemini Flash 2.5)</strong>
+                    <div class="small text-muted">
+                      Igual que Híbrido, pero cuando ambos OCR discrepan con la API
+                      se delega a Gemini Flash 2.5: analiza la imagen del acta y emite
+                      una anotación + veredicto de anomalía.
+                    </div>
+                  </label>
+                </div>
+
+                <!-- Clave Gemini (solo visible en modo hibrido_ia) -->
+                <div id="geminiKeySection" class="mb-3 d-none">
+                  <label class="form-label small fw-bold">
+                    Clave API Gemini
+                    <a href="https://aistudio.google.com/apikey" target="_blank"
+                       class="text-info ms-1" style="font-size:.7rem">→ obtener</a>
+                  </label>
+                  <div class="input-group input-group-sm">
+                    <input type="password" class="form-control font-monospace"
+                           id="geminiApiKey" placeholder="AIza…" autocomplete="off" />
+                    <button class="btn btn-outline-secondary" type="button"
+                            onclick="toggleGeminiKeyVis(this)">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  </div>
+                  <div class="d-flex align-items-center gap-2 mt-1">
+                    <span id="geminiApiStatus" class="badge bg-secondary small">Sin configurar</span>
+                    <span class="text-muted" style="font-size:.7rem">
+                      La clave se guarda solo en tu equipo (user_config.json local).
+                    </span>
+                  </div>
+                </div>
+
+                <button class="btn btn-info btn-sm text-dark fw-bold" onclick="guardarConfigComparacion()">
+                  <i class="bi bi-floppy me-1"></i>Aplicar modo
+                </button>
+                <span id="configCmpStatus" class="ms-2 small"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12">
+            <div class="card">
+              <div class="card-header small fw-bold"><i class="bi bi-info-circle"></i> Estado del sistema</div>
+              <div class="card-body" id="sistemaCfgInfo">
+                <button class="btn btn-sm btn-outline-secondary" onclick="cargarConfig()">
+                  <i class="bi bi-arrow-clockwise"></i> Cargar configuración actual
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Banner donación ─────────────────────────────────────────────────────── -->
+<div id="donaBanner" role="complementary" aria-label="Aviso open source">
+  <span class="dona-icon">💖</span>
+  <div class="dona-text">
+    <strong>Auditor ONPE 2026 es Open Source y gratuito</strong><br>
+    <span class="dona-stars">★★★★★</span>
+    Desarrollado de forma independiente para la transparencia electoral de Perú.
+    Si esta herramienta te es útil, considera apoyar su desarrollo.
+  </div>
+  <a href="https://ko-fi.com/angelgabrieljacintohuayllasco0499"
+     target="_blank" rel="noopener noreferrer" class="dona-btn">☕ Donar con amor</a>
+  <button class="dona-close" onclick="cerrarBanner()" title="Cerrar">✕</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="/static/app.js?v={{ range(1, 100000) | random }}"></script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  .gitignore — Auditor Forense de Actas ONPE 2026
+#  Los PDFs de actas y la base de datos local NO se publican (datos electorales
+#  de terceros y posible información personal). Tampoco credenciales de APIs.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pdb
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.whl
+.installed.cfg
+
+# ── Entornos virtuales ────────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+.env/
+ENV/
+Lib/
+Scripts/
+Include/
+
+# ── Variables de entorno y credenciales ───────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.json.key
+*-service-account*.json
+*-credentials*.json
+*serviceaccount*.json
+gcloud_key*.json
+application_default_credentials.json
+
+# ── Base de datos local ───────────────────────────────────────────────────────
+data/actas.db
+data/actas.db-journal
+data/actas.db-wal
+data/actas.db-shm
+
+# ── Actas PDF descargadas (datos electorales de terceros) ─────────────────────
+data/actas/**
+!data/actas/.gitkeep
+
+# ── Dataset MNIST (descargable automáticamente por PyTorch) ──────────────────
+data/mnist_data/
+
+# ── Salidas generadas por OCR y reportes ─────────────────────────────────────
+data/ocr/**
+!data/ocr/.gitkeep
+data/reports/**
+!data/reports/.gitkeep
+
+# ── Imágenes de depuración OCR ───────────────────────────────────────────────
+data/actas/*/debug_cells/
+data/actas/*/debug_ocr/
+data/actas/*/debug_cal/
+**/debug_cells/
+**/debug_ocr/
+**/debug_cal/
+
+# ── Modelo OCSVM entrenado (se re-entrena automáticamente) ───────────────────
+data/ocsvm_model.pkl
+
+# ── Test scripts con claves reales ───────────────────────────────────────────
+test_google_ocr.py
+test_*.py
+
+# ── IDEs y editores ───────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.lnk
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resultados Masivos — Auditor ONPE 2026</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg-main:    #0d1117;
+      --bg-card:    #161b22;
+      --bg-darker:  #0a0f16;
+      --border-col: #30363d;
+      --text-muted-col: #8b949e;
+    }
+    * { box-sizing: border-box; }
+    body { background: var(--bg-main); color: #c9d1d9; font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; min-height:100vh; }
+
+    /* ── Navbar ── */
+    .res-navbar {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-col);
+      padding: .6rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .res-navbar .brand { font-weight:700; font-size:.95rem; display:flex; align-items:center; gap:.4rem; }
+
+    /* ── Stats bar ── */
+    .stats-strip { display:flex; gap:.75rem; padding:.75rem 1.25rem; overflow-x:auto; flex-wrap:nowrap; }
+    .stat-chip {
+      background: var(--bg-card);
+      border: 1px solid var(--border-col);
+      border-radius: 10px;
+      padding: .55rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .stat-chip .val { font-size:1.3rem; font-weight:700; line-height:1; }
+    .stat-chip .lbl { font-size:.7rem; color: var(--text-muted-col); }
+
+    /* ── Filters ── */
+    .filters-bar {
+      padding: .5rem 1.25rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      align-items: center;
+      background: var(--bg-darker);
+      border-bottom: 1px solid var(--border-col);
+    }
+    .filters-bar .form-control,
+    .filters-bar .form-select {
+      background: var(--bg-card);
+      color: #c9d1d9;
+      border-color: var(--border-col);
+      font-size: .82rem;
+    }
+    .filters-bar .form-control:focus,
+    .filters-bar .form-select:focus {
+      background: var(--bg-card);
+      color: #e6edf3;
+      border-color: #58a6ff;
+      box-shadow: 0 0 0 2px rgba(88,166,255,.25);
+    }
+
+    /* ── Charts section ── */
+    .charts-panel {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-col);
+    }
+    .charts-panel .panel-header {
+      padding: .6rem 1.25rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+    .charts-panel .panel-header:hover { background: rgba(255,255,255,.03); }
+
+    /* ── Main table ── */
+    .table-wrapper {
+      overflow-x: auto;
+      overflow-y: auto;
+      max-height: calc(100vh - 340px);
+    }
+    #tablaResultados { font-size: .82rem; margin: 0; }
+    #tablaResultados thead th {
+      background: var(--bg-darker) !important;
+      color: var(--text-muted-col);
+      font-weight:600;
+      font-size:.75rem;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+      border-bottom: 1px solid var(--border-col);
+      padding: .55rem .75rem;
+      position: sticky;
+      top: 0;
+      z-index: 4;
+    }
+    #tablaResultados tbody tr { border-bottom: 1px solid #1c2128; transition: background .1s; }
+    #tablaResultados tbody tr:hover { background: rgba(88,166,255,.06) !important; }
+    #tablaResultados td { padding: .45rem .75rem; vertical-align: middle; }
+
+    .row-anomaly  { background: rgba(220,53,69,.08) !important; }
+    .row-warning  { background: rgba(255,193,7,.06) !important; }
+
+    /* ── Badges ── */
+    .badge { font-size: .7rem; font-weight:500; padding: .3em .6em; }
+    .badge-digital   { background:#0d6efd22; color:#6ea8fe; border:1px solid #0d6efd55; }
+    .badge-escaneado { background:#ffc10722; color:#ffda6a; border:1px solid #ffc10755; }
+    .badge-sin       { background:#6c757d22; color:#adb5bd; border:1px solid #6c757d55; }
+    .badge-ok        { background:#19875422; color:#75b798; border:1px solid #19875455; }
+    .badge-alerta    { background:#dc354522; color:#ea868f; border:1px solid #dc354555; }
+    @keyframes pulse-red {
+      0%,100% { box-shadow: 0 0 0 0 rgba(220,53,69,.4); }
+      50%      { box-shadow: 0 0 0 5px rgba(220,53,69,0); }
+    }
+    .badge-anomaly-anim { animation: pulse-red 1.8s infinite; }
+
+    /* ── Buttons xs ── */
+    .btn-xs { padding:.2rem .45rem; font-size:.75rem; line-height:1.3; border-radius:5px; }
+
+    /* ── Pagination ── */
+    #paginacion { gap:.3rem; }
+    #paginacion button { min-width:34px; }
+
+    /* ── Offcanvas detalle ── */
+    #offcanvasDetalle { background: var(--bg-card) !important; width:700px !important; color:#c9d1d9; }
+    #offcanvasDetalle .offcanvas-header { border-bottom:1px solid var(--border-col); }
+    #detalleTabs .nav-link { color: var(--text-muted-col) !important; font-size:.8rem; padding:.4rem .75rem; }
+    #detalleTabs .nav-link.active { color:#58a6ff !important; border-bottom:2px solid #58a6ff; }
+    #detalleTabs { background: var(--bg-darker); border-bottom:1px solid var(--border-col); flex-wrap:nowrap; gap:.1rem; }
+
+    #detalleContent { overflow-y:auto; height:calc(100vh - 140px); }
+    #detalleContent table { font-size:.8rem; }
+    #detalleContent pre { font-size:.72rem; }
+
+    .pdf-img-container { text-align:center; background:#000; border-radius:8px; overflow:hidden; }
+    .pdf-img-container img { max-width:100%; max-height:520px; object-fit:contain; }
+
+    /* ── Toast ── */
+    #toastZone { position:fixed; bottom:1.5rem; right:1.5rem; z-index:9999; display:flex; flex-direction:column; gap:.4rem; }
+    .res-toast { padding:.6rem 1rem; border-radius:8px; font-size:.82rem; color:#fff; max-width:320px; animation: fadeInUp .25s ease; }
+    .res-toast.ok  { background:#198754dd; }
+    .res-toast.err { background:#dc3545dd; }
+    @keyframes fadeInUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+  </style>
+</head>
+<body>
+
+<!-- ── NAVBAR ──────────────────────────────────────────────────────────────── -->
+<nav class="res-navbar">
+  <a href="/" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Inicio
+  </a>
+  <div class="brand">
+    <i class="bi bi-table text-info"></i>
+    Resultados Masivos
+  </div>
+  <a href="/proceso" class="btn btn-sm btn-outline-success ms-2">
+    <i class="bi bi-robot"></i> Nuevo barrido
+  </a>
+  <div class="ms-auto d-flex gap-2">
+    <button class="btn btn-sm btn-outline-info" onclick="refrescar()" id="btnRefrescar">
+      <i class="bi bi-arrow-clockwise"></i> Actualizar
+    </button>
+    <button class="btn btn-sm btn-outline-secondary" onclick="exportarCSV()">
+      <i class="bi bi-download"></i> CSV
+    </button>
+  </div>
+</nav>
+
+<!-- ── STATS STRIP ─────────────────────────────────────────────────────────── -->
+<div class="stats-strip" id="statsStrip">
+  <!-- Rellenado por JS -->
+  <div class="stat-chip"><div class="spinner-border spinner-border-sm text-secondary"></div></div>
+</div>
+
+<!-- ── FILTERS ─────────────────────────────────────────────────────────────── -->
+<div class="filters-bar">
+  <input type="search" id="filtroBuscar" class="form-control"
+         style="width:175px" placeholder="🔍 Buscar mesa..."
+         oninput="debounceBuscar()">
+
+  <select id="filtroTipo" class="form-select" style="width:160px" onchange="cargarResultados(1)">
+    <option value="todos">Todas las actas</option>
+    <option value="con_pdf">Con PDF descargado</option>
+    <option value="con_ocr">Con OCR procesado</option>
+    <option value="con_anomalia">Con anomalía</option>
+    <option value="con_discrepancia">Con discrepancias</option>
+    <option value="sin_procesar">Sin procesar</option>
+  </select>
+
+  <select id="filtroSort" class="form-select" style="width:155px" onchange="cargarResultados(1)">
+    <option value="mesa">Ord: Mesa ↑</option>
+    <option value="anomalia">Ord: Anomalía ↓</option>
+    <option value="discrepancia">Ord: Discrepancias</option>
+    <option value="fecha">Ord: Fecha desc. ↓</option>
+    <option value="tipo">Ord: Tipo elección</option>
+  </select>
+
+  <span class="text-muted small ms-1" id="resultCountLabel" style="white-space:nowrap"></span>
+
+  <div class="ms-auto d-flex align-items-center gap-2">
+    <select id="limitSelect" class="form-select" style="width:115px" onchange="cargarResultados(1)">
+      <option value="50">50 / pág.</option>
+      <option value="100" selected>100 / pág.</option>
+      <option value="200">200 / pág.</option>
+    </select>
+  </div>
+</div>
+
+<!-- ── CHARTS PANEL ────────────────────────────────────────────────────────── -->
+<div class="charts-panel">
+  <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#chartsSection">
+    <span class="small fw-bold text-secondary">
+      <i class="bi bi-bar-chart-fill text-info me-2"></i>Gráficas globales
+    </span>
+    <i class="bi bi-chevron-up small text-muted" id="chartsChevron"></i>
+  </div>
+  <div class="collapse show" id="chartsSection">
+    <div class="p-3">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <div style="background:var(--bg-darker);border-radius:8px;padding:1rem">
+            <canvas id="chartTipoDoc" height="220"></canvas>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div style="background:var(--bg-darker);border-radius:8px;padding:1rem">
+            <canvas id="chartAnomalias" height="220"></canvas>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div style="background:var(--bg-darker);border-radius:8px;padding:1rem">
+            <canvas id="chartDiscrepancias" height="220"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TABLE ───────────────────────────────────────────────────────────────── -->
+<div style="padding:.75rem 1.25rem 0">
+  <div style="background:var(--bg-card);border:1px solid var(--border-col);border-radius:8px;overflow:hidden">
+    <div class="table-wrapper">
+      <table class="table table-dark table-hover mb-0" id="tablaResultados">
+        <thead>
+          <tr>
+            <th style="width:100px">Mesa</th>
+            <th>Elección</th>
+            <th>Estado</th>
+            <th>Documento</th>
+            <th>OCR</th>
+            <th>Forense</th>
+            <th>Anomalía</th>
+            <th class="text-center" style="width:90px">Discrepancias</th>
+            <th class="text-end"  style="width:100px">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tablaBody">
+          <tr><td colspan="9" class="text-center text-muted py-5">
+            <div class="spinner-border text-secondary" role="status"></div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Paginación -->
+  <div id="paginacion" class="d-flex justify-content-center mt-3 flex-wrap pb-3"></div>
+</div>
+
+<!-- ── OFFCANVAS: Detalle ──────────────────────────────────────────────────── -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasDetalle" aria-labelledby="offcanvasTitulo">
+  <div class="offcanvas-header">
+    <div>
+      <h6 class="offcanvas-title text-info mb-0" id="offcanvasTitulo">Detalle del acta</h6>
+      <div class="text-muted" style="font-size:.72rem" id="offcanvasSubtitulo"></div>
+    </div>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body p-0">
+    <!-- Tabs -->
+    <ul class="nav" id="detalleTabs" style="padding:.4rem .75rem 0;gap:.25rem">
+      <li class="nav-item">
+        <a class="nav-link active" href="#" onclick="return mostrarTab('pdf',this)">
+          <i class="bi bi-file-pdf"></i> PDF
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" onclick="return mostrarTab('ocr',this)">
+          <i class="bi bi-text-paragraph"></i> OCR
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" onclick="return mostrarTab('comparacion',this)">
+          <i class="bi bi-arrows-expand"></i> Comparación
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" onclick="return mostrarTab('forense',this)">
+          <i class="bi bi-shield-exclamation"></i> Forense
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" onclick="return mostrarTab('ocsvm',this)">
+          <i class="bi bi-cpu"></i> OCSVM
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" onclick="return mostrarTab('api',this)">
+          <i class="bi bi-code-square"></i> API
+        </a>
+      </li>
+    </ul>
+    <div id="detalleContent" style="padding:1rem"></div>
+  </div>
+</div>
+
+<!-- ── TOASTS ──────────────────────────────────────────────────────────────── -->
+<div id="toastZone"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="/static/resultados.js"></script>
+</body>
+</html>

@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auditoría Electoral — ONPE 2026</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css?v={{ range(1,99999)|random }}" />
+  <style>
+    body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .aud-navbar { background: #161b22; border-bottom: 1px solid #30363d; }
+    .aud-hero { background: linear-gradient(135deg, #161b22 0%, #0d1117 60%); border-bottom: 2px solid #f85149; padding: 1.2rem 1.5rem; }
+    .aud-hero h4 { color: #f85149; font-weight: 700; margin: 0; }
+    .stat-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem 1.25rem; transition: border-color .2s; }
+    .stat-card:hover { border-color: #58a6ff; }
+    .stat-card .num { font-size: 2rem; font-weight: 700; line-height: 1; }
+    .stat-card .lbl { font-size: .72rem; color: #8b949e; text-transform: uppercase; letter-spacing: .05em; margin-top: .25rem; }
+    .chart-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; }
+    .chart-card .chart-title { font-size: .85rem; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .75rem; }
+    .anomaly-row td { font-size: .8rem; }
+    .badge-sev-alta { background: #da3633; }
+    .badge-sev-media { background: #d29922; }
+    .badge-sev-baja  { background: #238636; }
+    .section-sep { border-color: #30363d; margin: 2rem 0 1.5rem; }
+    .sync-btn { border-color: #58a6ff; color: #58a6ff; }
+    .sync-btn:hover { background: #1f6feb; color: #fff; border-color: #1f6feb; }
+    .tab-pill { cursor: pointer; padding: .3rem .8rem; border-radius: 20px; font-size: .78rem; }
+    .tab-pill.active { background: #1f6feb; color: #fff; }
+    .tab-pill:not(.active) { color: #8b949e; }
+    .tab-pill:not(.active):hover { color: #e6edf3; }
+    canvas { max-height: 320px; }
+    .table-dark td, .table-dark th { border-color: #30363d; }
+    .aud-section-title { font-size: .95rem; font-weight: 700; color: #f0f6fc; display: flex; align-items: center; gap: .5rem; margin-bottom: 1rem; }
+    .tag-anomaly { background: #3d1f1f; color: #f85149; padding: .15rem .5rem; border-radius: 4px; font-size: .75rem; }
+    #toastContainer { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999; }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar aud-navbar px-4 py-2 sticky-top">
+  <div class="d-flex align-items-center gap-3">
+    <a href="/" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i>
+    </a>
+    <span class="fw-bold fs-5">
+      <i class="bi bi-shield-fill-exclamation text-danger"></i>
+      <span class="text-danger">Auditoría Electoral</span>
+      <span class="text-secondary ms-1 small fw-normal">ONPE 2026</span>
+    </span>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <span class="badge bg-danger" id="badgeAnomalias">—</span>
+    <span class="text-muted small">anomalías detectadas</span>
+    <button class="btn btn-sm sync-btn ms-3" onclick="sincronizarONPE(this)">
+      <i class="bi bi-cloud-download me-1"></i>Sincronizar con ONPE
+    </button>
+    <button class="btn btn-sm btn-outline-secondary" onclick="cargarTodo()">
+      <i class="bi bi-arrow-clockwise"></i>
+    </button>
+  </div>
+</nav>
+
+<!-- HERO BANNER -->
+<div class="aud-hero">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <h4><i class="bi bi-search me-2"></i>Sistema Antifraud Electoral — Análisis de Anomalías</h4>
+      <p class="text-secondary mb-0 small">
+        Detecta y expone con evidencia cualquier irregularidad en el conteo de actas ONPE 2026.
+        Datos de: <strong class="text-info">API ONPE</strong> +
+        <strong class="text-warning">OCR local/Google</strong> +
+        <strong class="text-warning">Gemini IA</strong>.
+      </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap" id="syncStatus"></div>
+  </div>
+</div>
+
+<div class="container-fluid px-4 py-3">
+
+  <!-- ─── TARJETAS DE RESUMEN ────────────────────────────────────────────── -->
+  <div class="row g-3 mb-4" id="statCards">
+    <!-- Se renderizan via JS -->
+    <div class="col-12 text-center text-muted py-4" id="statsLoading">
+      <span class="spinner-border spinner-border-sm me-2"></span>Cargando estadísticas...
+    </div>
+  </div>
+
+  <!-- ─── SECCIÓN: DÍAS DE VOTACIÓN + TIMELINE ──────────────────────────── -->
+  <hr class="section-sep">
+  <div class="aud-section-title">
+    <i class="bi bi-calendar-event text-info"></i>
+    Distribución por Día de Votación &amp; Timeline
+    <span class="badge bg-secondary ms-1" title="Análisis de cuándo se procesó cada acta">?</span>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-lg-3 col-md-6">
+      <div class="chart-card h-100">
+        <div class="chart-title"><i class="bi bi-pie-chart me-1"></i>Día 12 vs Día 13</div>
+        <canvas id="chartDiaVotacion"></canvas>
+        <div class="text-center mt-2 small" id="lblDiaVotacion"></div>
+      </div>
+    </div>
+    <div class="col-lg-5 col-md-6">
+      <div class="chart-card h-100">
+        <div class="chart-title"><i class="bi bi-clock me-1"></i>Digitalización por hora (hora Perú)</div>
+        <canvas id="chartHoraDigitalizacion"></canvas>
+      </div>
+    </div>
+    <div class="col-lg-4 col-md-12">
+      <div class="chart-card h-100">
+        <div class="chart-title"><i class="bi bi-speedometer me-1"></i>Velocidad de procesamiento</div>
+        <canvas id="chartVelocidad"></canvas>
+        <div id="lblVelocidad" class="text-center small mt-1 text-muted"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estado por tipo de elección -->
+  <div class="row g-3 mb-4">
+    <div class="col-lg-6">
+      <div class="chart-card">
+        <div class="chart-title"><i class="bi bi-bar-chart me-1"></i>Actas por tipo de elección / día</div>
+        <canvas id="chartTipoEleccionDia"></canvas>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="chart-card">
+        <div class="chart-title">
+          <i class="bi bi-exclamation-triangle text-danger me-1"></i>
+          Anomalías de timeline
+          <span id="badgeTimelineAnomalias" class="ms-2 badge bg-danger">0</span>
+        </div>
+        <div id="tablaTimelineAnomalias" class="table-responsive" style="max-height:260px;overflow-y:auto">
+          <div class="text-muted text-center py-3">Cargando...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SECCIÓN: VOTOS POR PARTIDO (LOCAL vs API GENERAL) ─────────────── -->
+  <hr class="section-sep">
+  <div class="aud-section-title">
+    <i class="bi bi-bar-chart-line text-warning"></i>
+    Votos por Partido — Análisis Comparativo
+    <span class="text-secondary small fw-normal ms-1">(local acumulado vs API nacional)</span>
+  </div>
+
+  <!-- Selector de elección -->
+  <div class="d-flex gap-2 mb-3 flex-wrap" id="eleccionTabs">
+    <span class="tab-pill active" data-eleccion="10" onclick="seleccionarEleccion(this,10)">Presidencial</span>
+    <span class="tab-pill" data-eleccion="15" onclick="seleccionarEleccion(this,15)">Senadores DEU</span>
+    <span class="tab-pill" data-eleccion="14" onclick="seleccionarEleccion(this,14)">Senadores DEM</span>
+    <span class="tab-pill" data-eleccion="13" onclick="seleccionarEleccion(this,13)">Diputados</span>
+    <span class="tab-pill" data-eleccion="12" onclick="seleccionarEleccion(this,12)">Parl. Andino</span>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-lg-7">
+      <div class="chart-card">
+        <div class="chart-title">
+          <i class="bi bi-people me-1"></i>
+          Votos acumulados por partido
+          <span class="text-muted ms-2 small">(suma de todas las actas locales)</span>
+        </div>
+        <canvas id="chartVotosPartido" style="max-height:400px"></canvas>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="chart-card">
+        <div class="chart-title">
+          <i class="bi bi-arrow-left-right text-warning me-1"></i>
+          Local vs API Nacional (% diferencia)
+          <span id="cacheBadge" class="ms-2 badge bg-secondary d-none">sin sync</span>
+        </div>
+        <canvas id="chartLocalVsApi" style="max-height:400px"></canvas>
+        <div id="lblLocalVsApi" class="text-muted small text-center mt-1"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SECCIÓN: INCONSISTENCIAS DE SUMA ──────────────────────────────── -->
+  <hr class="section-sep">
+  <div class="aud-section-title">
+    <i class="bi bi-calculator text-danger"></i>
+    Inconsistencias de Suma Interna
+    <span id="badgeInconsistencias" class="ms-2 badge bg-danger">0</span>
+    <span class="text-secondary small fw-normal ms-1">
+      (actas donde la suma de votos no coincide con el total declarado)
+    </span>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-lg-4">
+      <div class="chart-card">
+        <div class="chart-title"><i class="bi bi-bar-chart me-1"></i>Inconsistencias por elección</div>
+        <canvas id="chartInconsistenciasTipo"></canvas>
+      </div>
+    </div>
+    <div class="col-lg-8">
+      <div class="chart-card">
+        <div class="chart-title">
+          <i class="bi bi-table me-1"></i>Actas con sumas incorrectas
+          <span class="text-muted small ms-2">(mayores primero)</span>
+        </div>
+        <div id="tablaInconsistencias" class="table-responsive" style="max-height:300px;overflow-y:auto">
+          <div class="text-muted text-center py-3">Cargando...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SECCIÓN: ANOMALÍAS ESTADÍSTICAS POR PARTIDO ──────────────────── -->
+  <hr class="section-sep">
+  <div class="aud-section-title">
+    <i class="bi bi-graph-up-arrow text-danger"></i>
+    Anomalías Estadísticas por Partido (z-score &gt; 2.5σ)
+    <span id="badgeAnomaliaPartido" class="ms-2 badge bg-danger">0</span>
+    <span class="text-secondary small fw-normal ms-1">
+      (mesas donde un partido obtuvo un porcentaje fuera de lo normal)
+    </span>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-lg-5">
+      <div class="chart-card">
+        <div class="chart-title"><i class="bi bi-scatter-chart me-1"></i>Top partidos con outliers</div>
+        <canvas id="chartAnomaliaPartido"></canvas>
+      </div>
+    </div>
+    <div class="col-lg-7">
+      <div class="chart-card">
+        <div class="chart-title">
+          <i class="bi bi-table me-1"></i>Mesas con votos estadísticamente anómalos
+        </div>
+        <div id="tablaAnomaliaPartido" class="table-responsive" style="max-height:320px;overflow-y:auto">
+          <div class="text-muted text-center py-3">Cargando...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SECCIÓN: RANKING MESAS SOSPECHOSAS ───────────────────────────── -->
+  <hr class="section-sep">
+  <div class="aud-section-title">
+    <i class="bi bi-trophy-fill text-warning"></i>
+    Ranking de Mesas Más Sospechosas
+    <span class="text-secondary small fw-normal ms-1">(score compuesto de señales de alerta)</span>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-lg-5">
+      <div class="chart-card">
+        <div class="chart-title"><i class="bi bi-bar-chart-line me-1"></i>Top 20 mesas por score</div>
+        <canvas id="chartMesasSospechosas" style="max-height:380px"></canvas>
+      </div>
+    </div>
+    <div class="col-lg-7">
+      <div class="chart-card">
+        <div class="chart-title"><i class="bi bi-table me-1"></i>Detalle de señales por mesa</div>
+        <div id="tablaMesasSospechosas" class="table-responsive" style="max-height:380px;overflow-y:auto">
+          <div class="text-muted text-center py-3">Cargando...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SECCIÓN: PARTICIPACIÓN CIUDADANA ─────────────────────────────── -->
+  <hr class="section-sep">
+  <div class="aud-section-title">
+    <i class="bi bi-people-fill text-success"></i>
+    Participación Ciudadana — Cruce con Actas Locales
+    <span class="badge bg-warning text-dark ms-2" id="badgeAnomaliasPart" style="display:none">0</span>
+    <span class="badge bg-secondary ms-2" id="badgePartSync" style="display:none">sin sync</span>
+    <button class="btn btn-outline-success btn-sm ms-auto" onclick="sincronizarParticipacion(this)">
+      <i class="bi bi-arrow-repeat me-1"></i>Sincronizar participación
+    </button>
+  </div>
+
+  <!-- Tarjetas nacionales ONPE -->
+  <div class="row g-2 mb-3" id="statCardsParticipacion">
+    <div class="col text-center text-muted small py-3">Sincroniza primero con ONPE para ver datos oficiales.</div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <!-- Donut oficial -->
+    <div class="col-lg-3 col-md-6">
+      <div class="chart-card">
+        <div class="chart-title"><i class="bi bi-pie-chart me-1"></i>Participación oficial (ONPE)</div>
+        <canvas id="chartParticipacionOficial" style="max-height:220px"></canvas>
+        <div id="lblPartOficial" class="text-center mt-2 small text-muted">Sin datos</div>
+      </div>
+    </div>
+    <!-- Comparación local vs oficial -->
+    <div class="col-lg-5 col-md-6">
+      <div class="chart-card">
+        <div class="chart-title"><i class="bi bi-bar-chart-steps me-1"></i>Suma votos locales vs asistentes ONPE</div>
+        <canvas id="chartLocalVsAsistentes" style="max-height:220px"></canvas>
+        <div id="lblDesfase" class="text-center mt-2 small text-muted">—</div>
+      </div>
+    </div>
+    <!-- Histograma de participación por mesa -->
+    <div class="col-lg-4">
+      <div class="chart-card">
+        <div class="chart-title"><i class="bi bi-bar-chart me-1"></i>Distribución participación por mesa</div>
+        <canvas id="chartHistParticipacion" style="max-height:220px"></canvas>
+        <div id="lblHistPart" class="text-center mt-2 small text-muted">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Anomalías de participación -->
+  <div class="row g-3 mb-4">
+    <div class="col-12">
+      <div class="chart-card">
+        <div class="chart-title">
+          <i class="bi bi-exclamation-triangle me-1 text-warning"></i>
+          Anomalías de participación detectadas
+          <span class="badge bg-danger ms-2" id="cntAnomaliasPart">0</span>
+        </div>
+        <div id="tablaAnomaliasPart" class="table-responsive" style="max-height:340px;overflow-y:auto">
+          <div class="text-muted text-center py-3 small">Cargando datos de participación...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pie de página -->
+  <div class="text-center text-muted small py-4 border-top border-secondary mt-3">
+    <i class="bi bi-shield-check me-1 text-success"></i>
+    Sistema de Auditoría Electoral — Datos de la API pública ONPE.
+    Toda la información proviene de fuentes oficiales.
+    Este sistema solo <strong>analiza</strong> y <strong>expone</strong> irregularidades con evidencia.
+  </div>
+
+</div><!-- /container-fluid -->
+
+<!-- TOAST CONTAINER -->
+<div id="toastContainer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="/static/auditoria.js?v={{ range(1,99999)|random }}"></script>
+</body>
+</html>

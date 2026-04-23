@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ejecutando barrido — Auditor ONPE 2026</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="proceso-body">
+
+<!-- ── NAVBAR ──────────────────────────────────────────────────────────────── -->
+<nav class="navbar navbar-dark bg-dark px-4 py-2 sticky-top">
+  <div class="d-flex align-items-center gap-3">
+    <a href="/" class="btn btn-sm btn-outline-light">
+      <i class="bi bi-arrow-left"></i> Inicio
+    </a>
+    <span class="navbar-brand fw-bold fs-6 mb-0">
+      <i class="bi bi-robot text-success"></i> Ejecución en tiempo real
+    </span>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <span id="jobStatusBadge" class="badge bg-secondary fs-6 px-3 py-2">
+      <i class="bi bi-hourglass-split"></i> Iniciando…
+    </span>
+    <span id="jobIdLabel" class="text-muted small font-monospace"></span>
+  </div>
+</nav>
+
+<!-- ── CONFIG SUMMARY ─────────────────────────────────────────────────────── -->
+<div class="proceso-config-bar">
+  <div class="config-item">
+    <i class="bi bi-sliders2 text-primary"></i>
+    <span class="label">Rango</span>
+    <span class="value font-monospace" id="cfgRango">—</span>
+  </div>
+  <div class="config-item">
+    <i class="bi bi-speedometer2 text-info"></i>
+    <span class="label">Delay</span>
+    <span class="value font-monospace" id="cfgDelay">—</span>
+  </div>
+  <div class="config-item">
+    <i class="bi bi-layers text-success"></i>
+    <span class="label">Hilos</span>
+    <span class="value font-monospace" id="cfgHilos">—</span>
+  </div>
+  <div class="config-item">
+    <i class="bi bi-stop-circle text-warning"></i>
+    <span class="label">Max vacíos</span>
+    <span class="value font-monospace" id="cfgMaxVacios">—</span>
+  </div>
+  <div class="config-item">
+    <i class="bi bi-clock text-muted"></i>
+    <span class="label">Inicio</span>
+    <span class="value" id="cfgInicio">—</span>
+  </div>
+  <div class="config-item ms-auto">
+    <i class="bi bi-speedometer text-success"></i>
+    <span class="label">Velocidad</span>
+    <span class="value text-success fw-bold" id="cfgVelocidad">— /min</span>
+  </div>
+</div>
+
+<!-- ── PROGRESO GLOBAL ─────────────────────────────────────────────────────── -->
+<div class="proceso-progress-bar">
+  <div class="d-flex justify-content-between align-items-center mb-1 px-1">
+    <span class="small fw-bold" id="progresoTexto">Iniciando…</span>
+    <div class="d-flex gap-3 small text-muted">
+      <span id="progresoETA"></span>
+      <span id="progresoContador"></span>
+    </div>
+  </div>
+  <div class="progress" style="height:18px;border-radius:9px">
+    <div class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+         id="progressBar" style="width:0%;transition:width .5s ease">0%</div>
+  </div>
+</div>
+
+<!-- ── MÉTRICAS ─────────────────────────────────────────────────────────────── -->
+<div class="proceso-metrics">
+  <div class="metric-card metric-total">
+    <div class="metric-val" id="mTotal">0</div>
+    <div class="metric-label">Procesadas</div>
+  </div>
+  <div class="metric-card metric-pdf">
+    <div class="metric-val text-success" id="mConPdf">0</div>
+    <div class="metric-label">Con PDF</div>
+  </div>
+  <div class="metric-card metric-sinpdf">
+    <div class="metric-val text-info" id="mSinPdf">0</div>
+    <div class="metric-label">Sin PDF</div>
+  </div>
+  <div class="metric-card metric-noexiste">
+    <div class="metric-val text-secondary" id="mNoExiste">0</div>
+    <div class="metric-label">No existe</div>
+  </div>
+  <div class="metric-card metric-jee">
+    <div class="metric-val text-warning" id="mJee">0</div>
+    <div class="metric-label">JEE</div>
+  </div>
+  <div class="metric-card metric-error">
+    <div class="metric-val text-danger" id="mError">0</div>
+    <div class="metric-label">Con error</div>
+  </div>
+  <div class="metric-card metric-vacios">
+    <div class="metric-val text-danger fw-bold" id="mVacios">0</div>
+    <div class="metric-label">Vacíos consec.</div>
+    <div class="metric-sub" id="mVaciosMax"></div>
+  </div>
+  <div class="metric-card metric-velocidad">
+    <div class="metric-val text-primary" id="mVelocidad">0</div>
+    <div class="metric-label">Mesas/min</div>
+  </div>
+</div>
+
+<!-- ── CUERPO PRINCIPAL: log + charts ──────────────────────────────────────── -->
+<div class="proceso-main">
+
+  <!-- Log console -->
+  <div class="log-panel">
+    <div class="log-panel-header">
+      <span><i class="bi bi-terminal"></i> Registro en tiempo real</span>
+      <div class="d-flex gap-2 align-items-center">
+        <label class="form-check form-switch mb-0 small text-muted">
+          <input class="form-check-input" type="checkbox" id="autoScroll" checked />
+          Auto-scroll
+        </label>
+        <button class="btn btn-xs btn-outline-secondary" onclick="limpiarLog()">
+          <i class="bi bi-trash3"></i>
+        </button>
+      </div>
+    </div>
+    <div id="logConsole" class="log-console"></div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-panel">
+    <div class="chart-card">
+      <div class="chart-card-title"><i class="bi bi-pie-chart-fill"></i> Distribución de estados</div>
+      <canvas id="chartEstados" height="220"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title"><i class="bi bi-graph-up"></i> Velocidad de procesamiento</div>
+      <canvas id="chartVelocidad" height="220"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title"><i class="bi bi-bar-chart-fill"></i> Vacíos consecutivos</div>
+      <canvas id="chartVacios" height="180"></canvas>
+    </div>
+  </div>
+
+</div><!-- /proceso-main -->
+
+<!-- ── CONTROLES ────────────────────────────────────────────────────────────── -->
+<div class="proceso-controls">
+  <button id="btnPausar" class="btn btn-warning btn-control" onclick="pausarJob()">
+    <i class="bi bi-pause-circle-fill"></i> Pausar
+  </button>
+  <button id="btnReanudar" class="btn btn-success btn-control d-none" onclick="reanudarJob()">
+    <i class="bi bi-play-circle-fill"></i> Reanudar
+  </button>
+  <button id="btnDetener" class="btn btn-danger btn-control" onclick="detenerJob()">
+    <i class="bi bi-stop-circle-fill"></i> Detener
+  </button>
+  <button id="btnVolver" class="btn btn-secondary btn-control" onclick="volverInicio()">
+    <i class="bi bi-arrow-left"></i> Volver al inicio
+  </button>
+</div>
+
+<!-- ── MODAL: Resumen final ─────────────────────────────────────────────────── -->
+<div class="modal fade" id="modalResumen" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" id="resumenHeader">
+        <h5 class="modal-title" id="resumenTitulo">Proceso completado</h5>
+      </div>
+      <div class="modal-body" id="resumenBody">
+        <!-- Rellenado dinámicamente por proceso.js -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-success" onclick="window.location.href='/resultados'">
+          <i class="bi bi-table"></i> Ver resultados completos
+        </button>
+        <button class="btn btn-outline-secondary" onclick="window.location.href='/'">
+          <i class="bi bi-house-fill"></i> Inicio
+        </button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Ver log</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="/static/proceso.js"></script>
+</body>
+</html>
